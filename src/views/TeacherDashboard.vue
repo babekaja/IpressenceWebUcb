@@ -3,7 +3,7 @@
     <v-app-bar color="primary" dark>
       <v-app-bar-title>
         <v-icon class="mr-2">mdi-school</v-icon>
-        Tableau de Bord Étudiant
+        Tableau de Bord Enseignant
       </v-app-bar-title>
       <v-spacer></v-spacer>
       <v-btn icon @click="logout">
@@ -26,132 +26,91 @@
         </v-row>
 
         <v-row>
-          <!-- QR Scanner -->
+          <!-- QR Code Generation -->
           <v-col cols="12" md="6">
             <v-card>
               <v-card-title>
-                <v-icon class="mr-2">mdi-qrcode-scan</v-icon>
-                Scanner QR Code
-              </v-card-title>
-              <v-card-text>
-                <QrReader
-                  @decode="onDecode"
-                  @init="onInit"
-                  :paused="checkingAttendance"
-                  style="width: 100%;"
-                />
-
-                <v-btn
-                  color="success"
-                  size="large"
-                  block
-                  @click="checkAttendance"
-                  :loading="checkingAttendance"
-                  :disabled="!qrUrl"
-                  class="mt-4"
-                >
-                  <v-icon class="mr-2">mdi-check</v-icon>
-                  Confirmer Présence
-                </v-btn>
-              </v-card-text>
-            </v-card>
-          </v-col>
-
-          <!-- Student Info -->
-          <v-col cols="12" md="6">
-            <v-card>
-              <v-card-title>
-                <v-icon class="mr-2">mdi-account-details</v-icon>
-                Informations Étudiants
+                <v-icon class="mr-2">mdi-qrcode</v-icon>
+                Générer QR Code
               </v-card-title>
               <v-card-text>
                 <v-btn
                   color="primary"
-                  variant="outlined"
+                  size="large"
                   block
-                  @click="loadStudentInfo"
-                  :loading="loadingStudentInfo"
-                  class="mb-4"
+                  @click="generateQR"
+                  :loading="generatingQR"
                 >
-                  <v-icon class="mr-2">mdi-refresh</v-icon>
-                  Charger Infos Officielles
+                  <v-icon class="mr-2">mdi-plus</v-icon>
+                  Nouvelle Session
                 </v-btn>
-
-                <div v-if="studentInfo" class="student-info">
-                  <v-card variant="outlined">
-                    <v-card-text>
-                      <div class="text-center mb-4">
-                        <v-avatar size="80" class="mb-2">
-                          <v-img
-                            :src="studentInfo.avatar"
-                            alt="Photo étudiant"
-                            @error="onImageError"
-                          >
-                            <template v-slot:placeholder>
-                              <v-icon size="40">mdi-account</v-icon>
-                            </template>
-                          </v-img>
-                        </v-avatar>
-                      </div>
-
-                      <v-list density="compact">
-                        <v-list-item>
-                          <v-list-item-title>Nom complet</v-list-item-title>
-                          <v-list-item-subtitle>{{ studentInfo.fullname }}</v-list-item-subtitle>
-                        </v-list-item>
-                        <v-list-item>
-                          <v-list-item-title>Date de naissance</v-list-item-title>
-                          <v-list-item-subtitle>{{ formatDate(studentInfo.birthday) }}</v-list-item-subtitle>
-                        </v-list-item>
-                        <v-list-item>
-                          <v-list-item-title>Lieu de naissance</v-list-item-title>
-                          <v-list-item-subtitle>{{ studentInfo.birthplace }}</v-list-item-subtitle>
-                        </v-list-item>
-                        <v-list-item>
-                          <v-list-item-title>Statut</v-list-item-title>
-                          <v-list-item-subtitle>
-                            <v-chip :color="studentInfo.active ? 'success' : 'error'" size="small">
-                              {{ studentInfo.active ? 'Actif' : 'Inactif' }}
-                            </v-chip>
-                          </v-list-item-subtitle>
-                        </v-list-item>
-                      </v-list>
-                    </v-card-text>
+                
+                <div v-if="currentSession" class="text-center mt-4">
+                  <v-card variant="outlined" class="pa-4">
+                    <div v-html="qrCodeSVG" class="mb-4"></div>
+                    <v-chip color="success" class="mb-2">
+                      <v-icon start>mdi-clock</v-icon>
+                      Expire dans: {{ timeRemaining }}
+                    </v-chip>
+                    <div class="text-caption">
+                      Session ID: {{ currentSession.session_id }}
+                    </div>
                   </v-card>
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <!-- Session Info -->
+          <v-col cols="12" md="6">
+            <v-card>
+              <v-card-title>
+                <v-icon class="mr-2">mdi-information</v-icon>
+                Informations Session
+              </v-card-title>
+              <v-card-text>
+                <div v-if="currentSession">
+                  <v-list-item>
+                    <v-list-item-title>Session Active</v-list-item-title>
+                    <v-list-item-subtitle>{{ currentSession.session_id }}</v-list-item-subtitle>
+                  </v-list-item>
+                  <v-list-item>
+                    <v-list-item-title>Présences Enregistrées</v-list-item-title>
+                    <v-list-item-subtitle>{{ presences.length }} étudiant(s)</v-list-item-subtitle>
+                  </v-list-item>
+                  <v-btn
+                    color="secondary"
+                    variant="outlined"
+                    block
+                    @click="refreshPresences"
+                    :loading="loadingPresences"
+                    class="mt-3"
+                  >
+                    <v-icon class="mr-2">mdi-refresh</v-icon>
+                    Actualiser
+                  </v-btn>
+                </div>
+                <div v-else class="text-center text-medium-emphasis">
+                  <v-icon size="64" color="grey">mdi-qrcode-scan</v-icon>
+                  <p class="mt-2">Aucune session active</p>
                 </div>
               </v-card-text>
             </v-card>
           </v-col>
         </v-row>
 
-        <!-- Attendance History -->
-        <v-row>
+        <!-- Attendance List -->
+        <v-row v-if="currentSession && presences.length > 0">
           <v-col cols="12">
             <v-card>
               <v-card-title>
-                <v-icon class="mr-2">mdi-history</v-icon>
-                Historique des Présences
-                <v-spacer></v-spacer>
-                <v-btn
-                  color="primary"
-                  variant="outlined"
-                  @click="loadMyPresences"
-                  :loading="loadingPresences"
-                >
-                  <v-icon class="mr-2">mdi-refresh</v-icon>
-                  Actualiser
-                </v-btn>
+                <v-icon class="mr-2">mdi-format-list-bulleted</v-icon>
+                Liste des Présences
               </v-card-title>
               <v-card-text>
-                <div v-if="myPresences.length === 0" class="text-center text-medium-emphasis py-8">
-                  <v-icon size="64" color="grey">mdi-clipboard-list-outline</v-icon>
-                  <p class="mt-2">Aucune présence enregistrée</p>
-                </div>
-
                 <v-data-table
-                  v-else
                   :headers="presenceHeaders"
-                  :items="myPresences"
+                  :items="presences"
                   :items-per-page="10"
                   class="elevation-1"
                 >
@@ -173,20 +132,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import QrReader from 'vue3-qr-reader'
-import ApiService, { type Student, type Presence } from '../services/api'
+
+import ApiService, { type GenerateQRResponse, type Presence } from '../services/api'
 
 const router = useRouter()
 
 const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
-const qrUrl = ref('')
-const studentInfo = ref<Student | null>(null)
-const myPresences = ref<Presence[]>([])
-const checkingAttendance = ref(false)
-const loadingStudentInfo = ref(false)
+const currentSession = ref<GenerateQRResponse | null>(null)
+const qrCodeSVG = ref('')
+const presences = ref<Presence[]>([])
+const generatingQR = ref(false)
 const loadingPresences = ref(false)
+const timeLeft = ref(0)
+const timer = ref<ReturnType<typeof setInterval> | null>(null)
+
+
+// @ts-ignore
+import QRCode from 'qrcode'
+
 
 const snackbar = ref({
   show: false,
@@ -195,112 +160,117 @@ const snackbar = ref({
 })
 
 const presenceHeaders = [
-  { title: 'Session ID', key: 'session_id' },
+  { title: 'Matricule', key: 'etudiant_matricule' },
+  { title: 'Nom', key: 'etudiant_nom' },
   { title: 'Date/Heure', key: 'date_heure' },
 ]
 
-const checkAttendance = async () => {
-  if (!qrUrl.value || !user.value) return
+const timeRemaining = computed(() => {
+  const minutes = Math.floor(timeLeft.value / 60)
+  const seconds = timeLeft.value % 60
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+})
 
-  checkingAttendance.value = true
+const generateQR = async () => {
+  if (!user.value) return
+
+  generatingQR.value = true
 
   try {
-    const url = new URL(qrUrl.value)
-    const sessionId = url.searchParams.get('session_id')
-    const token = url.searchParams.get('token')
+    const response = await ApiService.generateQR({ enseignant_id: user.value.id })
+    
+    if (response.status === 'success' && response.qr_url) {
+      currentSession.value = response
+      
+      // Generate QR code SVG
+      const qrCodeDataURL = await QRCode.toString(response.qr_url, {
+        type: 'svg',
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#1976D2',
+          light: '#FFFFFF'
+        }
+      })
+      qrCodeSVG.value = qrCodeDataURL
 
-    if (!sessionId || !token) {
-      showSnackbar('QR Code invalide', 'error')
-      return
-    }
-
-    const response = await ApiService.checkAttendance({
-      matricule: user.value.matricule,
-      session_id: sessionId,
-      token: token
-    })
-
-    if (response.status === 'success') {
-      showSnackbar('Présence enregistrée avec succès!', 'success')
-      qrUrl.value = ''
-      loadMyPresences()
+      // Start countdown timer
+      timeLeft.value = 5 * 60 // 5 minutes
+      startTimer()
+      
+      // Clear previous presences
+      presences.value = []
+      
+      showSnackbar('QR Code généré avec succès!', 'success')
     } else {
-      showSnackbar(response.message || 'Erreur lors de l\'enregistrement', 'error')
+      showSnackbar(response.message || 'Erreur lors de la génération du QR', 'error')
     }
   } catch (error) {
-    console.error('Check attendance error:', error)
-    showSnackbar('Erreur lors de l\'enregistrement de la présence', 'error')
+    console.error('Generate QR error:', error)
+    showSnackbar('Erreur lors de la génération du QR', 'error')
   } finally {
-    checkingAttendance.value = false
+    generatingQR.value = false
   }
 }
 
-const loadStudentInfo = async () => {
-  if (!user.value) return
-
-  loadingStudentInfo.value = true
-
-  try {
-    const data = await ApiService.getStudent(user.value.matricule)
-    if (data) {
-      studentInfo.value = data
-      showSnackbar('Informations chargées avec succès', 'success')
-    } else {
-      showSnackbar('Aucune information trouvée', 'warning')
-    }
-  } catch (error) {
-    console.error('Load student info error:', error)
-    showSnackbar('Erreur lors du chargement des informations', 'error')
-  } finally {
-    loadingStudentInfo.value = false
-  }
-}
-
-const loadMyPresences = async () => {
-  if (!user.value) return
+const refreshPresences = async () => {
+  if (!currentSession.value?.session_id) return
 
   loadingPresences.value = true
 
   try {
-    const data = await ApiService.getMyPresences(user.value.matricule)
-    myPresences.value = data
+    const data = await ApiService.getPresences(currentSession.value.session_id)
+    presences.value = data
   } catch (error) {
-    console.error('Load presences error:', error)
-    showSnackbar('Erreur lors du chargement de l\'historique', 'error')
+    console.error('Refresh presences error:', error)
+    showSnackbar('Erreur lors du chargement des présences', 'error')
   } finally {
     loadingPresences.value = false
   }
 }
 
-const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('fr-FR')
-const formatDateTime = (dateTime: string) => new Date(dateTime).toLocaleString('fr-FR')
-
-// Gestion QR
-const onDecode = (result: string) => {
-  qrUrl.value = result
-  showSnackbar('QR Code détecté !', 'success')
+const startTimer = () => {
+  if (timer.value) clearInterval(timer.value)
+  
+  timer.value = setInterval(() => {
+    if (timeLeft.value > 0) {
+      timeLeft.value--
+      
+      // Auto-refresh presences every 10 seconds
+      if (timeLeft.value % 10 === 0) {
+        refreshPresences()
+      }
+    } else {
+      clearInterval(timer.value!)
+      currentSession.value = null
+      qrCodeSVG.value = ''
+      showSnackbar('Session expirée', 'warning')
+    }
+  }, 1000)
 }
 
-const onInit = (promise: Promise<void>) => {
-  promise.catch(err => {
-    console.error('Erreur initialisation caméra:', err)
-    showSnackbar('Impossible d’accéder à la caméra', 'error')
-  })
+const formatDateTime = (dateTime: string) => {
+  return new Date(dateTime).toLocaleString('fr-FR')
 }
 
-// Autres fonctions
-const onImageError = (value: string | undefined) => console.log('Image load error:', value)
-const showSnackbar = (text: string, color: string) => { snackbar.value = { show: true, text, color } }
-const logout = () => { localStorage.removeItem('user'); router.push('/login') }
+const showSnackbar = (text: string, color: string) => {
+  snackbar.value = { show: true, text, color }
+}
+
+const logout = () => {
+  localStorage.removeItem('user')
+  router.push('/login')
+}
 
 onMounted(() => {
-  if (!user.value || user.value.type !== 'student') router.push('/login')
-  else loadMyPresences()
+  if (!user.value || user.value.type !== 'teacher') {
+    router.push('/login')
+  }
+})
+
+onUnmounted(() => {
+  if (timer.value) {
+    clearInterval(timer.value)
+  }
 })
 </script>
-
-<style scoped>
-.student-info .v-avatar img {
-  object-fit: cover;
-}
-</style>
